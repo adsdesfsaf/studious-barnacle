@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>国内可用WebSocket聊天室</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <main class="container mx-auto p-4 max-w-xl">
+    <div class="bg-white rounded shadow p-6">
+      <form id="loginForm" class="flex flex-col gap-3 mb-4">
+        <input id="username" class="border px-3 py-2 rounded" placeholder="用户名" required>
+        <input id="room" class="border px-3 py-2 rounded" placeholder="房间名" required>
+        <button class="bg-blue-500 text-white py-2 rounded">加入</button>
+      </form>
+      <div id="chatUI" class="hidden flex flex-col gap-2">
+        <div><span id="welcome" class="font-bold"></span></div>
+        <div id="messages" class="h-80 overflow-y-auto border p-2 rounded bg-gray-50"></div>
+        <form id="msgForm" class="flex gap-2 mt-2">
+          <input id="msgInput" autocomplete="off" class="flex-1 border rounded px-3 py-2" placeholder="输入消息..." required>
+          <button class="bg-blue-500 text-white rounded px-4">发送</button>
+        </form>
+      </div>
+    </div>
+  </main>
+  <script>
+    let ws, username, room;
+    const loginForm = document.getElementById('loginForm');
+    const chatUI = document.getElementById('chatUI');
+    const messages = document.getElementById('messages');
+    loginForm.onsubmit = e => {
+      e.preventDefault();
+      username = loginForm.username.value.trim();
+      room = loginForm.room.value.trim();
+      ws = new WebSocket('ws://localhost:8080');
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'join', room, username }));
+      };
+      ws.onmessage = e => {
+        let data = JSON.parse(e.data);
+        if(data.type === 'joined') {
+          loginForm.classList.add('hidden');
+          chatUI.classList.remove('hidden');
+          document.getElementById('welcome').textContent = `已加入房间：${data.room}`;
+        }
+        if(data.type === 'msg') {
+          messages.innerHTML += `<div><span class="text-blue-600">${data.username}</span> <span class="text-xs text-gray-400">${new Date(data.time).toLocaleTimeString()}</span>: ${data.text}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+        }
+        if(data.type === 'sys') {
+          messages.innerHTML += `<div class="text-gray-400 text-xs mb-1">${data.text}</div>`;
+          messages.scrollTop = messages.scrollHeight;
+        }
+      };
+    };
+    document.getElementById('msgForm').onsubmit = e => {
+      e.preventDefault();
+      const text = document.getElementById('msgInput').value.trim();
+      if(!text) return;
+      ws.send(JSON.stringify({ type: 'msg', text }));
+      document.getElementById('msgInput').value = '';
+    };
+  </script>
+</body>
+</html>
